@@ -19,6 +19,9 @@ type config struct {
 	kubeconfig        string
 	kubeconfigContent string
 	kubeconfigContext string
+	kubeToken string
+	kubeServer string
+	kubeCertificateAuthority string
 }
 
 func main() {
@@ -38,6 +41,18 @@ func main() {
 						Type:     schema.TypeString,
 						Optional: true,
 					},
+					"token": &schema.Schema{
+						Type:     schema.TypeString,
+						Optional: true,
+					},
+					"certificate_authority": &schema.Schema{
+						Type:     schema.TypeString,
+						Optional: true,
+					},
+          "server": &schema.Schema{
+            Type: schema.TypeString,
+            Optional: true,
+          },
 				},
 				ResourcesMap: map[string]*schema.Resource{
 					"k8s_manifest": resourceManifest(),
@@ -47,6 +62,9 @@ func main() {
 						kubeconfig:        d.Get("kubeconfig").(string),
 						kubeconfigContent: d.Get("kubeconfig_content").(string),
 						kubeconfigContext: d.Get("kubeconfig_context").(string),
+						kubeToken: d.Get("token").(string),
+						kubeCertificateAuthority: d.Get("certificate_authority").(string),
+						kubeServer: d.Get("server").(string),
 					}, nil
 				},
 			}
@@ -128,6 +146,21 @@ func kubectl(m interface{}, kubeconfig string, args ...string) *exec.Cmd {
 	context := m.(*config).kubeconfigContext
 	if context != "" {
 		args = append([]string{"--context", context}, args...)
+	}
+
+  ca := m.(*config).kubeCertificateAuthority
+	if ca != "" {
+		args = append([]string{"--certificate-authority", ca}, args...)
+	}
+
+  server := m.(*config).kubeServer
+	if server != "" {
+		args = append([]string{"--server", server}, args...)
+	}
+
+  token := m.(*config).kubeToken
+	if token != "" {
+		args = append([]string{"--token", token}, args...)
 	}
 
 	return exec.Command("kubectl", args...)
