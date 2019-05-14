@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+  "net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -16,9 +17,12 @@ import (
 )
 
 type config struct {
-	kubeconfig        string
-	kubeconfigContent string
-	kubeconfigContext string
+	kubeconfig               string
+	kubeconfigContent        string
+	kubeconfigContext        string
+	kubeToken                string
+	kubeServer               string
+	kubeCertificateAuthority string
 }
 
 func main() {
@@ -38,15 +42,30 @@ func main() {
 						Type:     schema.TypeString,
 						Optional: true,
 					},
+					"token": &schema.Schema{
+						Type:     schema.TypeString,
+						Optional: true,
+					},
+					"certificate_authority": &schema.Schema{
+						Type:     schema.TypeString,
+						Optional: true,
+					},
+					"server": &schema.Schema{
+						Type:     schema.TypeString,
+						Optional: true,
+					},
 				},
 				ResourcesMap: map[string]*schema.Resource{
 					"k8s_manifest": resourceManifest(),
 				},
 				ConfigureFunc: func(d *schema.ResourceData) (interface{}, error) {
 					return &config{
-						kubeconfig:        d.Get("kubeconfig").(string),
-						kubeconfigContent: d.Get("kubeconfig_content").(string),
-						kubeconfigContext: d.Get("kubeconfig_context").(string),
+						kubeconfig:               d.Get("kubeconfig").(string),
+						kubeconfigContent:        d.Get("kubeconfig_content").(string),
+						kubeconfigContext:        d.Get("kubeconfig_context").(string),
+						kubeToken:                d.Get("token").(string),
+						kubeCertificateAuthority: d.Get("certificate_authority").(string),
+						kubeServer:               d.Get("server").(string),
 					}, nil
 				},
 			}
@@ -130,6 +149,21 @@ func kubectl(m interface{}, kubeconfig string, args ...string) *exec.Cmd {
 		args = append([]string{"--context", context}, args...)
 	}
 
+	ca := m.(*config).kubeCertificateAuthority
+	if ca != "" {
+		args = append([]string{"--certificate-authority", ca}, args...)
+	}
+
+	server := m.(*config).kubeServer
+	if server != "" {
+		args = append([]string{"--server", server}, args...)
+	}
+
+	token := m.(*config).kubeToken
+	if token != "" {
+		args = append([]string{"--token", token}, args...)
+	}
+
 	return exec.Command("kubectl", args...)
 }
 
@@ -208,6 +242,15 @@ func resourceFromSelflink(s string) (resource, namespace string, ok bool) {
 			break
 		}
 	}
+
+ 	var err error
+	if resource, err = url.PathUnescape(resource); err != nil {
+		return "", "", false
+	}
+	if namespace, err = url.PathUnescape(namespace); err != nil {
+		return "", "", false
+	}
+
 	return resource, namespace, true
 }
 
@@ -220,7 +263,7 @@ func (e errorList) Error() string {
 func resourceManifestDelete(d *schema.ResourceData, m interface{}) error {
 	var errs []error
 	resources := strings.Split(d.Id(), resourceIDSelflinkDelim)
-	for i := len(resources)-1; i >= 0; i-- {
+	for i := len(resources) - 1; i >= 0; i-- {
 		if err := deleteResource(m, resources[i]); err != nil {
 			errs = append(errs, err)
 		}
@@ -291,4 +334,3 @@ func readResource(d *schema.ResourceData, m interface{}, selflink string) error 
 	}
 	return nil
 }
-
