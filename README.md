@@ -40,7 +40,13 @@ provider "k8s" {
 soon as call is completed. This may impact performance if the code runs on a shared system because
 and the global tempdir is used.
 
-The k8s Terraform provider introduces a single Terraform resource, a `k8s_manifest`. The resource contains a `content` field, which contains a raw manifest.
+Other supported provider options
+- token
+- certificate_authority
+- kubeconfig_context
+- server
+
+The k8s Terraform provider introduces a single Terraform resource, a `k8s_manifest`. The resource contains a `content` field, which contains one or several raw manifests.
 
 ```hcl
 variable "replicas" {
